@@ -173,7 +173,6 @@ async function uploadImage(file) {
 // ========================================
 // ADICIONAR TRABALHO
 // ========================================
-
 portfolioForm.addEventListener(
   'submit',
   async (event) => {
@@ -183,12 +182,21 @@ portfolioForm.addEventListener(
     const imageInput =
       document.getElementById('portfolio-image');
 
-    const file = imageInput.files[0];
+    const files = Array.from(imageInput.files);
 
-    if (!file) {
+    if (files.length === 0) {
       setStatus(
         portfolioStatus,
-        'Escolha uma imagem.',
+        'Escolha pelo menos uma imagem.',
+        true
+      );
+      return;
+    }
+
+    if (files.length > 5) {
+      setStatus(
+        portfolioStatus,
+        'Você pode escolher no máximo 5 imagens.',
         true
       );
       return;
@@ -196,21 +204,32 @@ portfolioForm.addEventListener(
 
     setStatus(
       portfolioStatus,
-      'Enviando imagem...'
+      'Enviando imagens...'
     );
 
-    let uploadedFileName = null;
+    const uploadedImages = [];
+    let createdItemId = null;
 
     try {
 
-      const uploaded = await uploadImage(file);
-
-      uploadedFileName = uploaded.fileName;
+      // Envia todas as imagens
+      for (const file of files) {
+        const uploaded = await uploadImage(file);
+        uploadedImages.push(uploaded);
+      }
 
       setStatus(
         portfolioStatus,
         'Salvando trabalho...'
       );
+
+      const altPt =
+        document.getElementById('alt-pt')
+          .value.trim();
+
+      const altEn =
+        document.getElementById('alt-en')
+          .value.trim();
 
       const newItem = {
 
@@ -234,28 +253,50 @@ portfolioForm.addEventListener(
           document.getElementById('category')
             .value,
 
+        // A primeira foto será a capa
         image_url:
-          uploaded.publicUrl,
+          uploadedImages[0].publicUrl,
 
-        alt_pt:
-          document.getElementById('alt-pt')
-            .value.trim(),
-
-        alt_en:
-          document.getElementById('alt-en')
-            .value.trim(),
+        alt_pt: altPt,
+        alt_en: altEn,
 
         display_order: 0,
         is_visible: true,
         is_featured: false
       };
 
-      const { error } =
+      const {
+        data: createdItem,
+        error: itemError
+      } =
         await supabaseClient
           .from('portfolio_items')
-          .insert(newItem);
+          .insert(newItem)
+          .select('id')
+          .single();
 
-      if (error) throw error;
+      if (itemError) throw itemError;
+
+      createdItemId = createdItem.id;
+
+      // Salva as fotos ligadas ao trabalho
+      const imageRows =
+        uploadedImages.map((image, index) => ({
+          portfolio_item_id: createdItemId,
+          image_url: image.publicUrl,
+          file_path: image.fileName,
+          alt_pt: altPt,
+          alt_en: altEn,
+          display_order: index,
+          is_cover: index === 0
+        }));
+
+      const { error: imagesError } =
+        await supabaseClient
+          .from('portfolio_images')
+          .insert(imageRows);
+
+      if (imagesError) throw imagesError;
 
       portfolioForm.reset();
 
@@ -270,12 +311,24 @@ portfolioForm.addEventListener(
 
       console.error(error);
 
-      // Se a foto subiu mas o banco falhou,
-      // remove a foto para não deixar arquivo perdido.
-      if (uploadedFileName) {
+      // Se o registro principal foi criado,
+      // remove ele e as imagens ligadas no banco.
+      if (createdItemId) {
+        await supabaseClient
+          .from('portfolio_items')
+          .delete()
+          .eq('id', createdItemId);
+      }
+
+      // Remove do Storage as fotos já enviadas.
+      if (uploadedImages.length > 0) {
         await supabaseClient.storage
           .from('portfolio-images')
-          .remove([uploadedFileName]);
+          .remove(
+            uploadedImages.map(
+              image => image.fileName
+            )
+          );
       }
 
       setStatus(
@@ -285,7 +338,7 @@ portfolioForm.addEventListener(
       );
     }
   }
-);
+););
 
 
 // ========================================
@@ -399,10 +452,9 @@ portfolioList.addEventListener(
     if (!button) return;
 
     const id = button.dataset.id;
-    const imageUrl = button.dataset.image;
 
     const confirmed = window.confirm(
-      'Deseja realmente excluir este trabalho?'
+      'Deseja realmente excluir este trabalho e todas as fotos?'
     );
 
     if (!confirmed) return;
@@ -412,37 +464,41 @@ portfolioList.addEventListener(
 
     try {
 
-      // Remove imagem do Storage
-      if (imageUrl) {
+      // Busca todas as fotos ligadas ao trabalho
+      const {
+        data: images,
+        error: imagesError
+      } =
+        await supabaseClient
+          .from('portfolio_images')
+          .select('file_path')
+          .eq('portfolio_item_id', id);
 
-        const marker =
-          '/storage/v1/object/public/portfolio-images/';
+      if (imagesError) throw imagesError;
 
-        if (imageUrl.includes(marker)) {
+      // Remove todas as fotos do Storage
+      const filePaths = (images || [])
+        .map(image => image.file_path)
+        .filter(Boolean);
 
-          const filePath =
-            decodeURIComponent(
-              imageUrl.split(marker)[1]
-            );
+      if (filePaths.length > 0) {
 
-          if (filePath) {
+        const { error: storageError } =
+          await supabaseClient.storage
+            .from('portfolio-images')
+            .remove(filePaths);
 
-            const { error: storageError } =
-              await supabaseClient.storage
-                .from('portfolio-images')
-                .remove([filePath]);
-
-            if (storageError) {
-              console.error(
-                'Erro ao remover imagem:',
-                storageError
-              );
-            }
-          }
+        if (storageError) {
+          console.error(
+            'Erro ao remover imagens:',
+            storageError
+          );
         }
       }
 
-      // Remove registro do banco
+      // Apaga o trabalho.
+      // As linhas de portfolio_images
+      // são apagadas automaticamente pelo CASCADE.
       const { error } =
         await supabaseClient
           .from('portfolio_items')
@@ -466,8 +522,6 @@ portfolioList.addEventListener(
     }
   }
 );
-
-
 // ========================================
 // SEGURANÇA DE TEXTO
 // ========================================
