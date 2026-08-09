@@ -477,5 +477,53 @@ function refreshPortfolioFilters() {
 
 refreshPortfolioFilters();
 
+async function loadSiteSettings() {
+
+  try {
+
+    const { data, error } =
+      await supabaseClient
+        .from('site_settings')
+        .select(`
+          id,
+          site_name,
+          company_name,
+          logo_url
+        `)
+        .eq('id', 1)
+        .single();
+
+    if (error) throw error;
+
+    const siteLogo =
+      document.getElementById('site-logo');
+
+    const brandText =
+      document.getElementById('brand-text');
+
+    if (
+      data?.logo_url &&
+      siteLogo
+    ) {
+
+      siteLogo.src = data.logo_url;
+      siteLogo.style.display = 'block';
+
+      if (brandText) {
+        brandText.style.display = 'none';
+      }
+    }
+
+  } catch (error) {
+
+    console.error(
+      'Erro ao carregar configurações do site:',
+      error
+    );
+  }
+}
+
+loadSiteSettings();
+
 // Carrega os trabalhos cadastrados no painel
 loadPublicPortfolio();
