@@ -287,7 +287,46 @@ portfolioForm.addEventListener(
     // ========================================
 
     if (editingItemId) {
+      
+const newUploadedImages = [];
 
+      const {
+  data: existingImages,
+  error: existingImagesError
+} =
+  await supabaseClient
+    .from('portfolio_images')
+    .select(`
+      id,
+      display_order
+    `)
+    .eq(
+      'portfolio_item_id',
+      editingItemId
+    );
+
+if (existingImagesError) {
+  throw existingImagesError;
+}
+
+const currentImageCount =
+  existingImages?.length || 0;
+
+if (
+  currentImageCount +
+  files.length >
+  5
+) {
+
+  setStatus(
+    portfolioStatus,
+    `Este trabalho já possui ${currentImageCount} foto(s). O máximo permitido é 5.`,
+    true
+  );
+
+  return;
+}
+      
       setStatus(
         portfolioStatus,
         'Salvando alterações...'
@@ -368,6 +407,73 @@ portfolioForm.addEventListener(
           throw imagesError;
         }
 
+// ========================================
+// ADICIONAR NOVAS FOTOS NA EDIÇÃO
+// ========================================
+
+if (files.length > 0) {
+
+  setStatus(
+    portfolioStatus,
+    'Enviando novas fotos...'
+  );
+
+  for (const file of files) {
+
+    const uploaded =
+      await uploadImage(file);
+
+    newUploadedImages.push(uploaded);
+  }
+
+  const highestOrder =
+    existingImages.length > 0
+      ? Math.max(
+          ...existingImages.map(
+            image =>
+              image.display_order || 0
+          )
+        )
+      : -1;
+
+  const newImageRows =
+    newUploadedImages.map(
+      (image, index) => ({
+
+        portfolio_item_id:
+          editingItemId,
+
+        image_url:
+          image.publicUrl,
+
+        file_path:
+          image.fileName,
+
+        alt_pt:
+          altPt,
+
+        alt_en:
+          altEn,
+
+        display_order:
+          highestOrder + index + 1,
+
+        is_cover: false
+      })
+    );
+
+  const {
+    error: newImagesError
+  } =
+    await supabaseClient
+      .from('portfolio_images')
+      .insert(newImageRows);
+
+  if (newImagesError) {
+    throw newImagesError;
+  }
+}
+        
         resetEditMode(false);
 
         setStatus(
@@ -849,11 +955,35 @@ if (
             font-size:12px;
           "
         >
-          ${
-            image.is_cover
-              ? '⭐ Capa'
-              : 'Foto'
-          }
+         ${
+  image.is_cover
+    ? `
+      <button
+        type="button"
+        disabled
+        style="
+          margin-top:6px;
+          width:100%;
+        "
+      >
+        ⭐ Capa
+      </button>
+    `
+    : `
+      <button
+        type="button"
+        class="set-cover-image"
+        data-image-id="${image.id}"
+        data-image-url="${escapeAttribute(image.image_url)}"
+        style="
+          margin-top:6px;
+          width:100%;
+        "
+      >
+        Definir como capa
+      </button>
+    `
+}
         </div>
       </div>
     `).join('');
@@ -944,6 +1074,382 @@ if (
   }
 );
 
+// ========================================
+// DEFINIR FOTO COMO CAPA
+// ========================================
+
+currentImages.addEventListener(
+  'click',
+  async (event) => {
+
+    const button =
+      event.target.closest('.set-cover-image');
+
+    if (!button || !editingItemId) return;
+
+    const imageId =
+      button.dataset.imageId;
+
+    const imageUrl =
+      button.dataset.imageUrl;
+
+    try {
+
+      button.disabled = true;
+      button.textContent = 'Alterando...';
+
+
+      // Busca as fotos atuais do trabalho
+      const {
+        data: images,
+        error: imagesError
+      } =
+        await supabaseClient
+          .from('portfolio_images')
+          .select(`
+            id,
+            display_order,
+            is_cover
+          `)
+          .eq(
+            'portfolio_item_id',
+            editingItemId
+          );
+
+      if (imagesError) {
+        throw imagesError;
+      }
+
+
+      const selectedImage =
+        images.find(
+          image =>
+            String(image.id) ===
+            String(imageId)
+        );
+
+      const oldCover =
+        images.find(
+          image => image.is_cover
+        );
+
+      if (!selectedImage) {
+        throw new Error(
+          'Imagem não encontrada.'
+        );
+      }
+
+
+      const selectedOldOrder =
+        selectedImage.display_order;
+
+
+      // Nova foto vira capa e vai
+      // para a primeira posição
+      const {
+        error: newCoverError
+      } =
+        await supabaseClient
+          .from('portfolio_images')
+          .update({
+            is_cover: true,
+            display_order: 0
+          })
+          .eq(
+            'id',
+            imageId
+          );
+
+      if (newCoverError) {
+        throw newCoverError;
+      }
+
+
+      // A capa anterior deixa de ser capa
+      // e assume a posição da foto escolhida
+      if (
+        oldCover &&
+        String(oldCover.id) !==
+        String(imageId)
+      ) {
+
+        const {
+          error: oldCoverError
+        } =
+          await supabaseClient
+            .from('portfolio_images')
+            .update({
+              is_cover: false,
+              display_order:
+                selectedOldOrder
+            })
+            .eq(
+              'id',
+              oldCover.id
+            );
+
+        if (oldCoverError) {
+          throw oldCoverError;
+        }
+      }
+
+
+      // Atualiza também a foto principal
+      // usada no card do site
+      const {
+        error: itemError
+      } =
+        await supabaseClient
+          .from('portfolio_items')
+          .update({
+            image_url: imageUrl
+          })
+          .eq(
+            'id',
+            editingItemId
+          );
+
+      if (itemError) {
+        throw itemError;
+      }
+
+
+      setStatus(
+        portfolioStatus,
+        'Capa alterada com sucesso!'
+      );
+
+      // Recarrega o painel
+      await loadPortfolio();
+
+      // Clica novamente em Editar
+      // para atualizar as miniaturas
+      const editButton =
+        portfolioList.querySelector(
+          `.edit-item[data-id="${editingItemId}"]`
+        );
+
+      if (editButton) {
+        editButton.click();
+      }
+
+    } catch (error) {
+
+      console.error(error);
+
+      setStatus(
+        portfolioStatus,
+        'Erro ao alterar a capa.',
+        true
+      );
+
+      button.disabled = false;
+      button.textContent =
+        'Definir como capa';
+    }
+  }
+);
+
+// ========================================
+// EXCLUIR FOTO INDIVIDUAL
+// ========================================
+
+currentImages.addEventListener(
+  'click',
+  async (event) => {
+
+    const button =
+      event.target.closest(
+        '.delete-portfolio-image'
+      );
+
+    if (!button || !editingItemId) return;
+
+    const imageId =
+      button.dataset.imageId;
+
+    const filePath =
+      button.dataset.filePath;
+
+    const isCover =
+      button.dataset.isCover === 'true';
+
+    try {
+
+      const {
+        data: images,
+        error: imagesError
+      } =
+        await supabaseClient
+          .from('portfolio_images')
+          .select(`
+            id,
+            image_url,
+            file_path,
+            display_order,
+            is_cover
+          `)
+          .eq(
+            'portfolio_item_id',
+            editingItemId
+          )
+          .order(
+            'display_order',
+            { ascending: true }
+          );
+
+      if (imagesError) {
+        throw imagesError;
+      }
+
+      // Nunca deixa o trabalho sem foto
+      if (!images || images.length <= 1) {
+
+        alert(
+          'O trabalho precisa ter pelo menos uma foto.'
+        );
+
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          'Deseja realmente excluir esta foto?'
+        );
+
+      if (!confirmed) return;
+
+      button.disabled = true;
+      button.textContent = 'Excluindo...';
+
+
+      // Se estiver excluindo a capa,
+      // outra foto assume automaticamente.
+      if (isCover) {
+
+        const newCover =
+          images.find(
+            image =>
+              String(image.id) !==
+              String(imageId)
+          );
+
+        if (!newCover) {
+          throw new Error(
+            'Não foi possível definir uma nova capa.'
+          );
+        }
+
+        const {
+          error: coverError
+        } =
+          await supabaseClient
+            .from('portfolio_images')
+            .update({
+              is_cover: true,
+              display_order: 0
+            })
+            .eq(
+              'id',
+              newCover.id
+            );
+
+        if (coverError) {
+          throw coverError;
+        }
+
+        const {
+          error: itemError
+        } =
+          await supabaseClient
+            .from('portfolio_items')
+            .update({
+              image_url:
+                newCover.image_url
+            })
+            .eq(
+              'id',
+              editingItemId
+            );
+
+        if (itemError) {
+          throw itemError;
+        }
+      }
+
+
+      // Remove registro da foto
+      const {
+        error: deleteError
+      } =
+        await supabaseClient
+          .from('portfolio_images')
+          .delete()
+          .eq(
+            'id',
+            imageId
+          );
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+
+      // Remove arquivo físico
+      // do Storage
+      if (filePath) {
+
+        const {
+          error: storageError
+        } =
+          await supabaseClient.storage
+            .from('portfolio-images')
+            .remove([filePath]);
+
+        if (storageError) {
+          console.error(
+            'Erro ao remover arquivo:',
+            storageError
+          );
+        }
+      }
+
+
+      setStatus(
+        portfolioStatus,
+        'Foto excluída com sucesso!'
+      );
+
+
+      await loadPortfolio();
+
+      // Atualiza novamente a área
+      // de edição e as miniaturas
+      const editButton =
+        portfolioList.querySelector(
+          `.edit-item[data-id="${editingItemId}"]`
+        );
+
+      if (editButton) {
+        editButton.click();
+      }
+
+    } catch (error) {
+
+      console.error(error);
+
+      setStatus(
+        portfolioStatus,
+        'Erro ao excluir a foto.',
+        true
+      );
+
+      button.disabled = false;
+      button.textContent =
+        'Excluir foto';
+    }
+  }
+);
 
 // ========================================
 // EXCLUIR TRABALHO
