@@ -140,6 +140,13 @@
           type="password"
           required
         >
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+  <input
+    type="checkbox"
+    onchange="document.getElementById('password').type = this.checked ? 'text' : 'password'"
+  >
+  Mostrar senha
+</label>
 
         <button class="primary" type="submit">
           Entrar
