@@ -115,3 +115,178 @@ async function getAdminSession() {
 
   return session;
 }
+
+// ========================================
+// PORTFÓLIO DINÂMICO - SUPABASE
+// ========================================
+
+async function loadPublicPortfolio() {
+
+  const gallery =
+    document.getElementById('portfolio-gallery');
+
+  if (!gallery || !supabaseClient) return;
+
+  try {
+
+    const { data, error } =
+      await supabaseClient
+        .from('portfolio_items')
+        .select(`
+          id,
+          title_pt,
+          title_en,
+          description_pt,
+          description_en,
+          category,
+          image_url,
+          alt_pt,
+          alt_en,
+          display_order,
+          is_visible
+        `)
+        .eq('is_visible', true)
+        .order('display_order', {
+          ascending: true
+        })
+        .order('created_at', {
+          ascending: false
+        });
+
+    if (error) throw error;
+
+    // Se ainda não houver trabalhos cadastrados,
+    // mantém os exemplos atuais do site.
+    if (!data || data.length === 0) {
+      return;
+    }
+
+    // Quando houver trabalhos no painel,
+    // substitui os exemplos antigos.
+    gallery.innerHTML = '';
+
+    data.forEach(item => {
+
+      const article =
+        document.createElement('article');
+
+      article.className = 'work-card';
+      article.tabIndex = 0;
+
+      article.dataset.category =
+        item.category || '';
+
+      article.dataset.image =
+        item.image_url || '';
+
+      article.dataset.titlePt =
+        item.title_pt || '';
+
+      article.dataset.titleEn =
+        item.title_en || item.title_pt || '';
+
+      const title =
+        currentLang === 'en'
+          ? (item.title_en || item.title_pt || '')
+          : (item.title_pt || '');
+
+      const alt =
+        currentLang === 'en'
+          ? (item.alt_en || item.title_en || item.title_pt || '')
+          : (item.alt_pt || item.title_pt || '');
+
+      article.innerHTML = `
+        <img
+          src="${escapePortfolioText(item.image_url || '')}"
+          alt="${escapePortfolioText(alt)}"
+          loading="lazy"
+        >
+
+        <div class="work-overlay">
+          <span class="card-title">
+            ${escapePortfolioText(title)}
+          </span>
+
+          <button
+            class="zoom-btn"
+            type="button"
+            aria-label="Ampliar"
+          >
+            ↗
+          </button>
+        </div>
+      `;
+
+      gallery.appendChild(article);
+    });
+
+    refreshPortfolioEvents();
+
+  } catch (error) {
+
+    console.error(
+      'Erro ao carregar portfólio:',
+      error
+    );
+  }
+}
+
+
+function escapePortfolioText(value) {
+
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+
+function refreshPortfolioEvents() {
+
+  const cards =
+    document.querySelectorAll('.work-card');
+
+  cards.forEach(card => {
+
+    card.addEventListener('click', () => {
+      openCard(card);
+    });
+
+  });
+}
+function refreshPortfolioFilters() {
+
+  const filterButtons =
+    document.querySelectorAll('.filter');
+
+  filterButtons.forEach(button => {
+
+    button.addEventListener('click', () => {
+
+      const selected =
+        button.dataset.filter;
+
+      const currentCards =
+        document.querySelectorAll('.work-card');
+
+      currentCards.forEach(card => {
+
+        const show =
+          selected === 'all' ||
+          card.dataset.category === selected;
+
+        card.style.display =
+          show ? '' : 'none';
+      });
+
+    });
+
+  });
+}
+
+refreshPortfolioFilters();
+
+// Carrega os trabalhos cadastrados no painel
+loadPublicPortfolio();
