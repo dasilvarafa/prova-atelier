@@ -48,29 +48,70 @@ async function uploadPortfolioImage(file) {
   if (!file) return null;
 
   const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const fileName = `${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2)}.${fileExt}`;
 
-  const response = await fetch(
-    `${SUPABASE_URL}/storage/v1/object/portfolio-images/${fileName}`,
-    {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': file.type
-      },
-      body: file
-    }
-  );
+  const { error } = await supabaseClient.storage
+    .from('portfolio-images')
+    .upload(fileName, file, {
+      contentType: file.type,
+      upsert: false
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
+  if (error) {
     console.error('Erro no upload:', error);
-    throw new Error('Não foi possível enviar a imagem.');
+    throw error;
   }
 
-  return `${SUPABASE_URL}/storage/v1/object/public/portfolio-images/${fileName}`;
+  const { data } = supabaseClient.storage
+    .from('portfolio-images')
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
 }
 const supabaseClient = window.supabase
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
   : null;
+async function loginAdmin(email, password) {
+  if (!supabaseClient) {
+    throw new Error('Supabase não foi carregado.');
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    console.error('Erro no login:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+const ADMIN_EMAIL = 'admin@radreia.com';
+
+async function getAdminSession() {
+  if (!supabaseClient) return null;
+
+  const {
+    data: { session },
+    error
+  } = await supabaseClient.auth.getSession();
+
+  if (error) {
+    console.error('Erro ao verificar sessão:', error);
+    return null;
+  }
+
+  if (!session) return null;
+
+  if (session.user.email !== ADMIN_EMAIL) {
+    await supabaseClient.auth.signOut();
+    return null;
+  }
+
+  return session;
+}
