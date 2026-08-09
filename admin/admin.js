@@ -984,6 +984,22 @@ if (
       </button>
     `
 }
+
+<button
+  type="button"
+  class="delete-portfolio-image"
+  data-image-id="${image.id}"
+  data-file-path="${escapeAttribute(image.file_path || '')}"
+  data-is-cover="${image.is_cover}"
+  style="
+    margin-top:6px;
+    width:100%;
+    color:#ff7b7b;
+  "
+>
+  Excluir foto
+</button>
+
         </div>
       </div>
     `).join('');
