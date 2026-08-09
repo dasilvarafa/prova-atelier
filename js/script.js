@@ -39,3 +39,38 @@ function openCard(card){lbImg.src=card.dataset.image;const title=currentLang==="
 cards.forEach(card=>{card.addEventListener("click",()=>openCard(card));card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")openCard(card);});});
 function closeBox(){lightbox.classList.remove("open");document.body.style.overflow="";}
 lightbox.querySelector(".close").addEventListener("click",closeBox);lightbox.addEventListener("click",e=>{if(e.target===lightbox)closeBox();});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeBox();});
+
+// Supabase configuration
+const SUPABASE_URL = 'https://sqxermwhzvzjjjxvsiwv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_niWluhjYlUicrJCAsISBDg_DisFW1iU';
+// Upload de imagem para o Supabase Storage
+async function uploadPortfolioImage(file) {
+  if (!file) return null;
+
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+  const response = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/portfolio-images/${fileName}`,
+    {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': file.type
+      },
+      body: file
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Erro no upload:', error);
+    throw new Error('Não foi possível enviar a imagem.');
+  }
+
+  return `${SUPABASE_URL}/storage/v1/object/public/portfolio-images/${fileName}`;
+}
+const supabaseClient = window.supabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
