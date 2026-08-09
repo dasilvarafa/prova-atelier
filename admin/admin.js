@@ -27,6 +27,12 @@ const portfolioForm = document.getElementById('portfolio-form');
 const portfolioStatus = document.getElementById('portfolio-status');
 const portfolioList = document.getElementById('portfolio-list');
 
+const currentImagesSection =
+  document.getElementById('current-images-section');
+
+const currentImages =
+  document.getElementById('current-images');
+
 const adminUser = document.getElementById('admin-user');
 const logoutBtn = document.getElementById('logout-btn');
 
@@ -777,6 +783,88 @@ portfolioList.addEventListener(
 
       editingItemId =
         item.id;
+
+      const {
+  data: itemImages,
+  error: itemImagesError
+} =
+  await supabaseClient
+    .from('portfolio_images')
+    .select(`
+      id,
+      image_url,
+      file_path,
+      display_order,
+      is_cover
+    `)
+    .eq(
+      'portfolio_item_id',
+      editingItemId
+    )
+    .order(
+      'display_order',
+      {
+        ascending: true
+      }
+    );
+
+if (itemImagesError) {
+  throw itemImagesError;
+}
+
+if (
+  itemImages &&
+  itemImages.length > 0
+) {
+
+  currentImagesSection
+    .classList.remove('hidden');
+
+  currentImages.innerHTML =
+    itemImages.map(image => `
+      <div
+        style="
+          width:130px;
+          border:1px solid #333;
+          border-radius:10px;
+          padding:8px;
+        "
+      >
+        <img
+          src="${escapeAttribute(
+            image.image_url
+          )}"
+          alt=""
+          style="
+            width:100%;
+            height:100px;
+            object-fit:cover;
+            border-radius:8px;
+          "
+        >
+
+        <div
+          style="
+            margin-top:6px;
+            font-size:12px;
+          "
+        >
+          ${
+            image.is_cover
+              ? '⭐ Capa'
+              : 'Foto'
+          }
+        </div>
+      </div>
+    `).join('');
+
+} else {
+
+  currentImagesSection
+    .classList.add('hidden');
+
+  currentImages.innerHTML = '';
+}
 
       const imageInput =
         document.getElementById(
