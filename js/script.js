@@ -132,19 +132,24 @@ async function loadPublicPortfolio() {
     const { data, error } =
       await supabaseClient
         .from('portfolio_items')
-        .select(`
-          id,
-          title_pt,
-          title_en,
-          description_pt,
-          description_en,
-          category,
-          image_url,
-          alt_pt,
-          alt_en,
-          display_order,
-          is_visible
-        `)
+       .select(`
+  id,
+  title_pt,
+  title_en,
+  description_pt,
+  description_en,
+  category,
+  image_url,
+  alt_pt,
+  alt_en,
+  display_order,
+  is_visible,
+  portfolio_images (
+    image_url,
+    display_order,
+    is_cover
+  )
+`)
         .eq('is_visible', true)
         .order('display_order', {
           ascending: true
@@ -163,7 +168,7 @@ async function loadPublicPortfolio() {
 
     // Quando houver trabalhos no painel,
     // substitui os exemplos antigos.
-    gallery.innerHTML = '';
+    
 
     data.forEach(item => {
 
@@ -178,6 +183,22 @@ async function loadPublicPortfolio() {
 
       article.dataset.image =
         item.image_url || '';
+     const portfolioImages =
+  (item.portfolio_images || [])
+    .sort(
+      (a, b) =>
+        (a.display_order || 0) -
+        (b.display_order || 0)
+    )
+    .map(image => image.image_url)
+    .filter(Boolean);
+
+article.dataset.images =
+  JSON.stringify(
+    portfolioImages.length > 0
+      ? portfolioImages
+      : [item.image_url].filter(Boolean)
+  );
 
       article.dataset.titlePt =
         item.title_pt || '';
