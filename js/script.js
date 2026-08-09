@@ -35,7 +35,175 @@ document.querySelectorAll(".language button").forEach(b=>b.addEventListener("cli
 const filters=document.querySelectorAll(".filter"),cards=document.querySelectorAll(".work-card");
 filters.forEach(btn=>btn.addEventListener("click",()=>{filters.forEach(b=>b.classList.remove("active"));btn.classList.add("active");const f=btn.dataset.filter;cards.forEach(c=>c.style.display=(f==="all"||c.dataset.category===f)?"block":"none");}));
 const lightbox=document.getElementById("lightbox"),lbImg=lightbox.querySelector("img"),caption=lightbox.querySelector(".caption");
-function openCard(card){lbImg.src=card.dataset.image;const title=currentLang==="pt"?card.dataset.titlePt:card.dataset.titleEn;lbImg.alt=title;caption.textContent=title;lightbox.classList.add("open");document.body.style.overflow="hidden";}
+let currentLightboxImages = [];
+let currentLightboxIndex = 0;
+
+function updateLightboxImage() {
+  if (!currentLightboxImages.length) return;
+
+  lbImg.src =
+    currentLightboxImages[currentLightboxIndex];
+}
+
+function ensureLightboxNavigation() {
+
+  const inner =
+    lightbox.querySelector('.lightbox-inner');
+
+  if (!inner) return;
+
+  inner.style.position = 'relative';
+
+  let prevButton =
+    inner.querySelector('.lightbox-prev');
+
+  let nextButton =
+    inner.querySelector('.lightbox-next');
+
+  if (!prevButton) {
+
+    prevButton =
+      document.createElement('button');
+
+    prevButton.type = 'button';
+    prevButton.className = 'lightbox-prev';
+    prevButton.innerHTML = '‹';
+    prevButton.setAttribute(
+      'aria-label',
+      'Foto anterior'
+    );
+
+    prevButton.style.cssText = `
+      position:absolute;
+      left:12px;
+      top:50%;
+      transform:translateY(-50%);
+      z-index:5;
+      width:46px;
+      height:46px;
+      border:0;
+      border-radius:50%;
+      background:rgba(0,0,0,.65);
+      color:white;
+      font-size:36px;
+      cursor:pointer;
+    `;
+
+    inner.appendChild(prevButton);
+
+    prevButton.addEventListener(
+      'click',
+      event => {
+
+        event.stopPropagation();
+
+        currentLightboxIndex =
+          (
+            currentLightboxIndex -
+            1 +
+            currentLightboxImages.length
+          ) %
+          currentLightboxImages.length;
+
+        updateLightboxImage();
+      }
+    );
+  }
+
+  if (!nextButton) {
+
+    nextButton =
+      document.createElement('button');
+
+    nextButton.type = 'button';
+    nextButton.className = 'lightbox-next';
+    nextButton.innerHTML = '›';
+    nextButton.setAttribute(
+      'aria-label',
+      'Próxima foto'
+    );
+
+    nextButton.style.cssText = `
+      position:absolute;
+      right:12px;
+      top:50%;
+      transform:translateY(-50%);
+      z-index:5;
+      width:46px;
+      height:46px;
+      border:0;
+      border-radius:50%;
+      background:rgba(0,0,0,.65);
+      color:white;
+      font-size:36px;
+      cursor:pointer;
+    `;
+
+    inner.appendChild(nextButton);
+
+    nextButton.addEventListener(
+      'click',
+      event => {
+
+        event.stopPropagation();
+
+        currentLightboxIndex =
+          (
+            currentLightboxIndex +
+            1
+          ) %
+          currentLightboxImages.length;
+
+        updateLightboxImage();
+      }
+    );
+  }
+
+  const showNavigation =
+    currentLightboxImages.length > 1;
+
+  prevButton.style.display =
+    showNavigation ? 'block' : 'none';
+
+  nextButton.style.display =
+    showNavigation ? 'block' : 'none';
+}
+
+function openCard(card) {
+
+  try {
+
+    currentLightboxImages =
+      card.dataset.images
+        ? JSON.parse(card.dataset.images)
+        : [card.dataset.image];
+
+  } catch (error) {
+
+    currentLightboxImages =
+      [card.dataset.image];
+  }
+
+  currentLightboxImages =
+    currentLightboxImages.filter(Boolean);
+
+  currentLightboxIndex = 0;
+
+  updateLightboxImage();
+
+  const title =
+    currentLang === 'pt'
+      ? card.dataset.titlePt
+      : card.dataset.titleEn;
+
+  caption.textContent = title || '';
+
+  ensureLightboxNavigation();
+
+  lightbox.classList.add('open');
+
+  document.body.style.overflow = 'hidden';
+}
 cards.forEach(card=>{card.addEventListener("click",()=>openCard(card));card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")openCard(card);});});
 function closeBox(){lightbox.classList.remove("open");document.body.style.overflow="";}
 lightbox.querySelector(".close").addEventListener("click",closeBox);lightbox.addEventListener("click",e=>{if(e.target===lightbox)closeBox();});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeBox();});
