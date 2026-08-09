@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin | Atelier 3D</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(900px, 92%);
+      margin: 0 auto;
+      padding: 40px 0;
+    }
+
+    .card {
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    h1, h2 {
+      margin-top: 0;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-weight: bold;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      background: #252525;
+      color: #fff;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 18px;
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .primary {
+      background: #fff;
+      color: #111;
+    }
+
+    .danger {
+      background: #8b1e1e;
+      color: #fff;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .status {
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .topbar a {
+      color: #fff;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <div class="topbar">
+      <h1>Atelier 3D — Admin</h1>
+      <a href="../">Voltar ao site</a>
+    </div>
+
+    <!-- LOGIN -->
+    <section id="login-section" class="card">
+      <h2>Entrar</h2>
+
+      <form id="login-form">
+        <label for="email">E-mail</label>
+        <input
+          id="email"
+          type="email"
+          value="admin@radreia.com"
+          required
+        >
+
+        <label for="password">Senha</label>
+        <input
+          id="password"
+          type="password"
+          required
+        >
+
+        <button class="primary" type="submit">
+          Entrar
+        </button>
+
+        <div id="login-status" class="status"></div>
+      </form>
+    </section>
+
+    <!-- PAINEL -->
+    <section id="admin-section" class="hidden">
+
+      <div class="card">
+        <div class="topbar">
+          <div>
+            <h2>Painel do Portfólio</h2>
+            <span id="admin-user"></span>
+          </div>
+
+          <button id="logout-btn" class="danger">
+            Sair
+          </button>
+        </div>
+
+        <form id="portfolio-form">
+
+          <div class="grid">
+            <div>
+              <label for="title-pt">Título em português</label>
+              <input id="title-pt" type="text" required>
+            </div>
+
+            <div>
+              <label for="title-en">Título em inglês</label>
+              <input id="title-en" type="text" required>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div>
+              <label for="description-pt">Descrição em português</label>
+              <textarea id="description-pt"></textarea>
+            </div>
+
+            <div>
+              <label for="description-en">Descrição em inglês</label>
+              <textarea id="description-en"></textarea>
+            </div>
+          </div>
+
+          <label for="category">Categoria</label>
+          <select id="category" required>
+            <option value="">Escolha uma categoria</option>
+            <option value="gifts">Presentes</option>
+            <option value="stamps">Carimbos</option>
+            <option value="decor">Decoração</option>
+            <option value="sculptures">Esculturas</option>
+            <option value="events">Eventos</option>
+            <option value="accessories">Acessórios</option>
+          </select>
+
+          <label for="portfolio-image">Imagem</label>
+          <input
+            id="portfolio-image"
+            type="file"
+            accept="image/*"
+            required
+          >
+
+          <div class="grid">
+            <div>
+              <label for="alt-pt">Descrição da imagem PT</label>
+              <input id="alt-pt" type="text">
+            </div>
+
+            <div>
+              <label for="alt-en">Descrição da imagem EN</label>
+              <input id="alt-en" type="text">
+            </div>
+          </div>
+
+          <button class="primary" type="submit">
+            Adicionar ao portfólio
+          </button>
+
+          <div id="portfolio-status" class="status"></div>
+
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Trabalhos cadastrados</h2>
+        <div id="portfolio-list">
+          Carregando...
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin.js"></script>
+
+</body>
+</html>
